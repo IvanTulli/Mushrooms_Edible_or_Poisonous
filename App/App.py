@@ -16,7 +16,7 @@ from sklearn.metrics import recall_score
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import confusion_matrix
 
-st.sidebar.title("🍄 Is your Mushroom Edible or Poisonous? 🍄")
+st.sidebar.title("🍄 Is this Mushroom Edible or Poisonous? 🍄")
 @st.cache_data
 def load_data():
     BASE = Path(__file__).resolve().parent
@@ -210,22 +210,19 @@ rf_model, y_test, y_pred = load_model(data_oh)
 BASE = Path(__file__).resolve().parent
 
 st.sidebar.title('Options')
-option = st.sidebar.selectbox("Make a choice:", ("-", "General information", "Insights from the data", "Metrics of the trained model",
+option = st.sidebar.selectbox("Make a choice:", ("-", "Insights from the data", "Metrics of the trained model",
                                          "Is your mushroom poisonous?"))
 
 if option =='-':
-    st.title("🍄 Is your Mushroom Edible or Poisonous? 🍄")
-    col1,col2,col3=st.columns([1,4,1])
+    st.title("🍄 Is this Mushroom Edible or Poisonous? 🍄")
+    col1,col2,col3=st.columns([1,2,1])
     with col2:
         st.image(BASE / "Amanita_muscaria.jpg", caption ='Amanita muscaria, a very famous poisonous mushroom. [Source](https://en.wikipedia.org/wiki/Amanita_muscaria)')
-
-elif option == "General information":
-    st.subheader("General information")
-    st.markdown('This app uses a cleaned version of this [dataset](https://archive.ics.uci.edu/dataset/848/secondary+mushroom+dataset).')
-    st.markdown("The aim is to determine whether a mushroom is edible or poisonous based on features of the mushroom like cap diameter," \
-    " stem height or width, the habitat, the season of growth, etc. The target is called **class**.  A mushroom is **edible** if its class is 0,"
+    st.markdown('This app contains some results from a machine learning project for determining whether a mushroom is edible by using'
+    ' features like stem height or width, the habitat, the season of growth, etc. It uses a cleaned version of this [dataset](https://archive.ics.uci.edu/dataset/848/secondary+mushroom+dataset).')
+    st.markdown("The target is called **class**.  A mushroom is **edible** if its class is 0,"
     " and **poisonous** if its class is 1.")
-    st.markdown("The cleaned dataset has **61096** entries and **13** columns.")
+    st.markdown("You can take a peek at the dataset by clicking the box below. Otherwise, please choose an option from the sidebar.")
     if st.checkbox("Show 5 random samples from the dataset" , False, key = 'dataheadcheck'):
         st.write(data.replace({'Poisonous':1,'Edible':0}).sample(5))
 
