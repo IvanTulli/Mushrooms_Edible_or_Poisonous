@@ -218,7 +218,7 @@ if option =='-':
     col1,col2,col3=st.columns([1,2,1])
     with col2:
         st.image(BASE / "Amanita_muscaria.jpg", caption ='Amanita muscaria, a very famous poisonous mushroom. [Source](https://en.wikipedia.org/wiki/Amanita_muscaria)')
-    st.markdown('This app contains some results from a machine learning project for determining whether a mushroom is edible by using'
+    st.markdown('This app contains some results from a machine learning project for determining whether a mushroom is edible, by using'
     ' features like stem height or width, the habitat, the season of growth, etc. It uses a cleaned version of this [dataset](https://archive.ics.uci.edu/dataset/848/secondary+mushroom+dataset).')
     st.markdown("The target is called **class**.  A mushroom is **edible** if its class is 0,"
     " and **poisonous** if its class is 1.")
