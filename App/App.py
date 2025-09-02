@@ -286,10 +286,11 @@ elif option =="Metrics of the trained model":
     if model_options =='-':
         st.subheader("Metrics from the random forest model 🌲🌳🌲")
         st.markdown("A **random forest model** was trained with the hyperparamers chosen to maximize the **recall** score, while having "
-        "a high **accuracy** score." \
-        " This is because we are interested in minimizing the false predictions of edible mushrooms, while maximizing " \
-        "the true predictions of poisonous mushrooms.")
-        st.markdown("Please select an option from the sidebar")
+        "a high **accuracy** score.")
+        st.markdown("We maximize recall because we are interested in minimizing the false predictions of edible mushrooms, while maximizing " \
+        "the true predictions of poisonous mushrooms. At the same time, we also want high accuracy in order to avoid obtaining high " \
+        "recall by simply predicting that most mushrooms are poisonous. This strategy works because the classes are faily balanced.")
+        st.markdown("**To continue**, please select an option from the sidebar.")
         col1,col2,col3=st.columns([1,4,1])
         with col2:
             st.image(BASE / "Random_forest.avif", caption = "A 'random forest'. [Source](https://canopyplanet.org/forests/how-we-protect-forests)")
