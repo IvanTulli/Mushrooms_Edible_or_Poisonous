@@ -12,28 +12,23 @@ from plotly.subplots import make_subplots
 from pathlib import Path
 
 from sklearn.model_selection import train_test_split
-from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.ensemble import HistGradientBoostingClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import GridSearchCV 
-from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import recall_score
 from sklearn.metrics import accuracy_score
-from sklearn.inspection import permutation_importance
+from sklearn.metrics import confusion_matrix
 
-st.title("🍄 Which Mushrooms are Edible or Poisonous? 🍄")
-
+st.sidebar.title("🍄 Is your Mushroom Edible or Poisonous? 🍄")
 @st.cache_data
 def load_data():
     BASE = Path(__file__).resolve().parent
     PATH = BASE/ 'data.csv'
     PATHF = BASE / 'dataf.csv'
+    PATHFI = BASE / 'feature_importances_rf_accuracy.csv'
     data_oh = pd.read_csv(PATHF)
     data = pd.read_csv(PATH)
-    data.rename(columns = {'cap-diameter': 'cap-diameter (cm)', 'stem-height': 'stem-height (cm)', 'stem-width': 'stem-width (mm)'}, inplace = True)
+    fi_df = pd.read_csv(PATHFI)
     class_df=data['class'].replace({1:'Poisonous', 0: 'Edible'})
-    return data, data_oh, class_df
+    return data, data_oh, class_df, fi_df
 
 @st.cache_data
 def load_class_plots(class_df):
@@ -56,15 +51,15 @@ def load_class_plots(class_df):
 def load_scatter_plots(data):
     fig = make_subplots(rows=2, cols=2, shared_yaxes=False)
 
-    f1 = px.scatter(data, x='cap-diameter (cm)', y='stem-height (cm)', color ='class',  color_discrete_map={'Edible': "#1f77b4", 'Poisonous': "#ff7f0e"},
+    f1 = px.scatter(data, x='cap-diameter', y='stem-height', color ='class',  color_discrete_map={'Edible': "#1f77b4", 'Poisonous': "#ff7f0e"},
                     category_orders={'class': ['Edible', 'Poisonous']})
     f1.update_traces(marker=dict(size=8,
                                 line=dict(width=0.5, color="white")))
-    f2 = px.scatter(data, x='stem-height (cm)', y='stem-width (mm)', color ='class',  color_discrete_map={"Edible": "#1f77b4", "Poisonous": "#ff7f0e"},
+    f2 = px.scatter(data, x='stem-height', y='stem-width', color ='class',  color_discrete_map={"Edible": "#1f77b4", "Poisonous": "#ff7f0e"},
                     category_orders={'class': ['Edible', 'Poisonous']})
     f2.update_traces(marker=dict(size=8,
                                 line=dict(width=0.5, color="white")))
-    f3 = px.scatter(data, x='stem-width (mm)', y='cap-diameter (cm)', color ='class',  color_discrete_map={"Edible": "#1f77b4", "Poisonous": "#ff7f0e"},
+    f3 = px.scatter(data, x='stem-width', y='cap-diameter', color ='class',  color_discrete_map={"Edible": "#1f77b4", "Poisonous": "#ff7f0e"},
                     category_orders={'class': ['Edible', 'Poisonous']})
     f3.update_traces(marker=dict(size=8,
                                 line=dict(width=0.5, color="white")))
@@ -102,12 +97,12 @@ def load_scatter_plots(data):
 def load_num_hist_plots(data, rng1, rng2, rng3):
     fig = make_subplots(rows=2, cols=2, shared_yaxes=False)
 
-    f1 = px.histogram(data.loc[data['cap-diameter (cm)'].between(rng1[0],rng1[1]),'cap-diameter (cm)'], 
-                      x='cap-diameter (cm)', color_discrete_sequence=["#1f77b4"])
-    f2 = px.histogram(data.loc[data['stem-height (cm)'].between(rng2[0], rng2[1]), 'stem-height (cm)'], 
-                      x='stem-height (cm)',color_discrete_sequence=["#1f77b4"])
-    f3 = px.histogram(data.loc[data['stem-width (mm)'].between(rng3[0],rng3[1]), 'stem-width (mm)'], 
-                      x='stem-width (mm)',color_discrete_sequence=["#1f77b4"])
+    f1 = px.histogram(data.loc[data['cap-diameter'].between(rng1[0],rng1[1]),'cap-diameter'], 
+                      x='cap-diameter', color_discrete_sequence=["#1f77b4"])
+    f2 = px.histogram(data.loc[data['stem-height'].between(rng2[0], rng2[1]), 'stem-height'], 
+                      x='stem-height',color_discrete_sequence=["#1f77b4"])
+    f3 = px.histogram(data.loc[data['stem-width'].between(rng3[0],rng3[1]), 'stem-width'], 
+                      x='stem-width',color_discrete_sequence=["#1f77b4"])
 
     for tr in f1.data:
         fig.add_trace(tr, row=1, col=1)
@@ -122,7 +117,7 @@ def load_num_hist_plots(data, rng1, rng2, rng3):
     fig.update_xaxes(title_text='Stem Height (cm)', range=[rng2[0], rng2[1]], row=1, col=2)
     fig.update_yaxes(title_text='Count', row=1,col=2)
 
-    fig.update_xaxes(title_text='Stem Width (cm)', range=[rng3[0], rng3[1]], row=2, col=1)
+    fig.update_xaxes(title_text='Stem Width (mm)', range=[rng3[0], rng3[1]], row=2, col=1)
     fig.update_yaxes(title_text='Count', row=2,col=1)
 
     fig.update_layout(height=500, width=1100, showlegend=True)
@@ -147,17 +142,85 @@ def load_categorical_plots(data):
     f3.update_yaxes(title_text="Count")
     return f1,f2,f3
 
+@st.cache_data
+def load_model(data):
+    BASE = Path(__file__).resolve().parent
+    RF_PATH = BASE / "best_rf_model.pkl"
+    with RF_PATH.open("rb") as f:
+        rf_model = pickle.load(f)
+    X=data.iloc[:,1:]
+    y=data['class']
+    X_train, X_test, y_train, y_test = train_test_split(X,y, test_size=0.3, stratify=y,random_state=123)
+    y_pred = rf_model.predict(X_test)
+    return rf_model, y_test, y_pred
 
-data, data_oh, class_df = load_data()
+def plot_confusion_matrix(y_true, y_pred, labels=None, normalize=None, title=None):
+    """
+    normalize: None | 'true' | 'pred' | 'all'
+      None   -> raw counts
+      'true' -> rows sum to 1 (per true class)
+      'pred' -> columns sum to 1 (per predicted class)
+      'all'  -> all entries sum to 1
+    """
+    if labels is None:
+        labels = np.unique(np.concatenate([np.asarray(y_true), np.asarray(y_pred)]))
+    cm = confusion_matrix(y_true, y_pred, labels=labels, normalize=normalize)
+    cm_df = pd.DataFrame(cm, index=labels, columns=labels)
+
+    fig = px.imshow(
+        cm_df,
+        text_auto=(".2f" if normalize else "d"),
+        color_continuous_scale="Blues",
+        aspect="equal"
+    )
+    fig.update_xaxes(title_text="Predicted label", side="top")
+    fig.update_yaxes(title_text="True label", autorange="reversed")  # conventional layout
+    fig.update_layout(
+        title=title or ("Confusion matrix (normalized)" if normalize else "Confusion matrix"),
+        coloraxis_colorbar=dict(title="Proportion" if normalize else "Count"),
+        margin=dict(l=60, r=20, t=60, b=40)
+
+    )
+    class_names = ["edible", "poisonous"]
+    labels = np.unique(np.r_[y_true, y_pred])              
+
+    fig.update_xaxes(
+        showticklabels=True, tickmode="array",
+        tickvals=labels,                                    
+        ticktext=class_names, side="top"
+    )
+    fig.update_yaxes(
+        showticklabels=True, tickmode="array",
+        tickvals=labels,                                    
+        ticktext=class_names, autorange="reversed"
+    )
+    fig.update_yaxes(tickangle=-90)
+    return fig
+
+def plot_fi(fi_data):
+    fig = px.bar(fi_data[:5:], x='Importance', y='Feature', color='Feature', orientation='h')
+    fig.update_layout(showlegend=False)
+    return fig
+
+
+data, data_oh, class_df, fi_df = load_data()
 class_plots = load_class_plots(class_df)
 scatter_plots = load_scatter_plots(data)
 cat1, cat2, cat3 = load_categorical_plots(data)
+rf_model, y_test, y_pred = load_model(data_oh)
+BASE = Path(__file__).resolve().parent
 
 st.sidebar.title('Options')
-option = st.sidebar.selectbox("Make a choice:", ("-", "General information of the data", "Insights from the data", "Results from models",
-                                         "Determine if a mushroom is poisonous"))
+option = st.sidebar.selectbox("Make a choice:", ("-", "General information", "Insights from the data", "Metrics of the trained model",
+                                         "Is your mushroom poisonous?"))
 
-if option == "General information of the data":
+if option =='-':
+    st.title("🍄 Is your Mushroom Edible or Poisonous? 🍄")
+    col1,col2,col3=st.columns([1,4,1])
+    with col2:
+        st.image(BASE / "Amanita_muscaria.jpg", caption ='Amanita muscaria, a very famous poisonous mushroom. [Source](https://en.wikipedia.org/wiki/Amanita_muscaria)')
+
+elif option == "General information":
     st.subheader("General information")
     st.markdown('This app uses a cleaned version of this [dataset](https://archive.ics.uci.edu/dataset/848/secondary+mushroom+dataset).')
     st.markdown("The aim is to determine whether a mushroom is edible or poisonous based on features of the mushroom like cap diameter," \
@@ -167,15 +230,22 @@ if option == "General information of the data":
     if st.checkbox("Show 5 random samples from the dataset" , False, key = 'dataheadcheck'):
         st.write(data.replace({'Poisonous':1,'Edible':0}).sample(5))
 
-if option == 'Insights from the data':
+elif option == 'Insights from the data':
     option2 = st.sidebar.selectbox("What do you want to see from the data:", ('-', "Distribution of classes", 
                                                                              "Scatter plots of the numerical features", 
                                                                              "Distribution of the numerical features",
                                                                              "Distribution of the categorical features"))
-    if option2 =="Distribution of classes":
+    if option2 =='-':
+        st.subheader("Insights from the data")
+        st.markdown("Please select an option from the sidebar.")
+        col1,col2,col3=st.columns([1,8,1])
+        with col2:
+            st.image(BASE / "Fairy_ring.jpg", caption = 'A fairy ring. [Source](https://www.woodlandtrust.org.uk/blog/2019/08/what-is-a-fairy-ring/)')
+
+    elif option2 =="Distribution of classes":
         st.subheader("Distribution of classes")
         st.markdown("The distribution between classes is fairly balanced, with 11% more poisonous mushrooms" \
-        " than edible. This means that our models should beat the baseline of 55.5% accuracy, which would be attained by always" \
+        " than edible. This means that our model should beat the baseline of 55.5% accuracy, which would be attained by always" \
         " predicting the majority class.")
         st.plotly_chart(class_plots)
 
@@ -185,14 +255,14 @@ if option == 'Insights from the data':
         "We plot the 3 possible scatter plots among the numerical features, colored by the class of the point. ")
         st.markdown("We see several **distinct clusters**, as well as an overall tendency of poisonous mushrooms " \
         "to have **smaller cap diameter and stem height/width** compared to certain edible mushrooms. This indicates that these features " \
-        "will do a good job distinguishing between the classes.")
+        "might do a good job distinguishing between the classes.")
         st.plotly_chart(scatter_plots)
 
     elif option2 =="Distribution of the numerical features":
         st.subheader("Distribution of the numerical features")
         st.markdown("The distributions of the 3 numerical features is **skewed** rather than approximately normal, and shows the presence of " \
-        "**outliers**. For tree-based models like random forests and XGBoost this will be no issue, but for models like " \
-        "support vector machines (SVM) with an rbf kernel we will apply a log-transform to improve performance. ")
+        "**outliers**. This will cause no problems for tree-based models like random forests, but for models like " \
+        "support vector machines (SVM) with an rbf kernel one should try to performing a log transform. ")
         st.sidebar.markdown("Range of the plots:")
         rng1 = st.sidebar.slider("Cap diameter range (cm)", min_value=0, max_value=63, value=(0, 63), format="%.0f")
         rng2 = st.sidebar.slider("Stem height range (cm)", min_value=0, max_value = 34, value= (0,34))
@@ -203,11 +273,11 @@ if option == 'Insights from the data':
     elif option2 =="Distribution of the categorical features":
         st.subheader("Distribution of some categorical features")
         st.markdown("#### Cap shape distribution")
-        st.markdown("The most frequent cap shapes (convex and flat) dont allow us to distinguish between poisonous and edible " \
+        st.markdown("The most frequent cap shapes (convex and flat) dont allow us by itself to distinguish between poisonous and edible " \
         "mushrooms, but those that have bell shape or are in the 'others' category tend to be poisonous.")
         st.plotly_chart(cat1)
         st.markdown("#### Cap color distribution")
-        st.markdown("As before, we can't use the most frequent value (brown) to distinguish the class of mushroom, but certain" \
+        st.markdown("As before, we can't use the most frequent value (brown) by itself to distinguish the class of mushroom, but certain" \
         " less frequent colors like red, orange, green, pink and purple tend to be poisonous.")
         st.plotly_chart(cat2)
         st.markdown("#### Season distribution")
@@ -215,16 +285,78 @@ if option == 'Insights from the data':
         "proportion of poisonous mushrooms. During winter and spring we have more edible than poisonous mushrooms.")
         st.plotly_chart(cat3)
     
-elif option =="Results from models":
-    option3 = st.sidebar.selectbox("Select a model", ( '-', 'Random Forest','Support Vector Machine',  'XGBoost'))
+elif option =="Metrics of the trained model":
+    model_options = st.sidebar.selectbox("Which metrics do you want to see?", ('-', 'Accuracy, recall and confusion matrix', 'Feature importances'))
+    if model_options =='-':
+        st.subheader("Metrics from the random forest model 🌲🌳🌲")
+        st.markdown("A **random forest model** was trained with the hyperparamers chosen to maximize the **recall** score, while having "
+        "a high **accuracy** score." \
+        " This is because we are interested in minimizing the false predictions of edible mushrooms, while maximizing " \
+        "the true predictions of poisonous mushrooms.")
+        st.markdown("Please select an option from the sidebar")
+        col1,col2,col3=st.columns([1,4,1])
+        with col2:
+            st.image(BASE / "Random_forest.avif", caption = "A 'random forest'. [Source](https://canopyplanet.org/forests/how-we-protect-forests)")
 
-    if option3 =='Random Forest':
-        st.subheader('Random Forest Results')
+    elif model_options =='Accuracy, recall and confusion matrix':
+        st.subheader("Recall, accuracy, and confusion matrix")
+        st.markdown("Overal the model performed very well. Below we show the accuracy, recall and confusion matrix" \
+        " of the predictions on the test set.")
+        recall = recall_score(y_test, y_pred)
+        accuracy = accuracy_score(y_test, y_pred)
+        st.write(f"**Recall**: {recall:.1%}")
+        st.write(f"**Accuracy**: {accuracy: .1%}")
+        st.plotly_chart(plot_confusion_matrix(y_test,y_pred, title=None))
+    elif model_options =='Feature importances':
+        st.subheader("Top 5 important features for the training of the model")
+        st.markdown("The top 5 features that were the most important for the model while fitting are shown below. These where computed " \
+        "using **permutation importance** based on accuracy: how much randomly permuting a feature affects the accuracy of the model.")
+        fi_df['Feature'].replace({'stem-width': 'Stem width', 'stem-color_white': 'White stem color', 'cap-diameter': 'Cap diameter',
+                              'gill-color_white': 'White gill color', 'stem-height': 'Stem height'}, inplace= True)
+        st.plotly_chart(plot_fi(fi_df))
+        st.markdown("We see an appearance of the 3 numerical features (stem height/width, cap diameter), as well as two features obtained from " \
+        "the categorical ones via one hot encoding (white stem color, and white gill color). However, one should keep in mind that this" \
+        " is computed on the one-hot-encoded categorical features, which dilutes the feature importance of each original categorical feature.")
+
+elif option == "Is your mushroom poisonous?":
+    st.subheader("Determine if a mushroom is poisonous 💀 or edible 🍄")
+    st.markdown(":red[**Warning! Do not use this app for deciding whether to eat a wild mushroom.**]")
+    st.markdown("Please input the following data:")
+    cap_diameter = st.number_input("What is the diameter of the cap (in cm)?", min_value=0, max_value= 63)
+    cap_shape = st.selectbox("What is the cap shape?", tuple(data['cap-shape'].unique().tolist()))
+    cap_color = st.selectbox("What is the cap color?", tuple(data['cap-color'].unique().tolist()))
+    does_bruise_or_bleed= st.selectbox("Does the mushroom bruise or bleed?", tuple(data['does-bruise-or-bleed'].unique().tolist()))
+    gill_color = st.selectbox("What is the gill color?", tuple(data['gill-color'].unique().tolist()))
+    stem_height = st.number_input("What is the stem height (in cm)?", min_value=0, max_value= 34)
+    stem_width = st.number_input("What is the stem width (in mm)?", min_value=0, max_value= 104)
+    stem_color = st.selectbox("What is the stem color?", tuple(data['stem-color'].unique().tolist()))
+    has_ring = st.selectbox("Does it have a ring?", ('yes', 'no'))
+    if has_ring=='yes':
+        has_ring='ring'
+        ring_type_options= data['ring-type'].unique().tolist()
+        ring_type_options.remove('none')
+        ring_type = st.selectbox("What is the ring type?", tuple(ring_type_options))
+    elif has_ring =='no':
+        has_ring='none'
+        ring_type ='none'
+    habitat = st.selectbox("What is the habitat of the mushroom?", tuple(data['habitat'].unique().tolist()))
+    season = st.selectbox("What is the season?", tuple(data['season'].unique().tolist()))
+
+    input_df = pd.DataFrame({'cap-diameter': [cap_diameter], 'cap-shape': [cap_shape], 'cap-color':[cap_color],
+                             'does-bruise-or-bleed': [does_bruise_or_bleed], 'gill-color': [gill_color],
+                             'stem-height': [stem_height], 'stem-width': [stem_width], 'stem-color': [stem_color],
+                             'has-ring': [has_ring], 'ring-type': [ring_type], 'habitat': [habitat],
+                             'season': [season]})
     
-    elif option3 == 'Support Vector Machine':
-        st.subheader('Support Vector Machine Results')
-    
-    elif option3 == 'XGBoost':
-        st.subheader('XGBoost results')
+    if st.button("Predict!", type='primary'):
+        df_concat = pd.concat([data.iloc[:,1:], input_df], ignore_index=True)
+        input_df_oh=pd.get_dummies(df_concat).iloc[-1:,:]
+        y_pred= rf_model.predict(input_df_oh)
+        if y_pred==1:
+            st.subheader('The mushroom is predicted to be **poisonous**! 💀😵💀')
+        else:
+            st.subheader('The mushroom is predicted to be **edible** 🍄😁🍄!')
+
+
 
 
