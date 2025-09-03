@@ -292,7 +292,7 @@ elif option =="Metrics of the trained model":
         st.subheader("Metrics from the random forest model 🌲🌳🌲")
         st.markdown("A **random forest model** was trained with the hyperparamers chosen to maximize the **f1-score**. Since the classes are fairly" \
         " balanced, a high f1-score also ensures high accuracy. Furthermore, a high f1-score also ensures high recall, and hence a low number of" \
-        " poisonous mushrooms misclasified as edible.")
+        " poisonous mushrooms misclassified as edible.")
 
         st.markdown("**To continue**, please select an option from the sidebar.")
         col1,col2,col3=st.columns([1,4,1])
