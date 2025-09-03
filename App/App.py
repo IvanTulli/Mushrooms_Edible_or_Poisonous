@@ -12,8 +12,7 @@ from pathlib import Path
 
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import recall_score
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import recall_score, f1_score, accuracy_score, precision_score
 from sklearn.metrics import confusion_matrix
 
 st.sidebar.title("🍄 Is this Mushroom Edible or Poisonous? 🍄")
@@ -22,7 +21,7 @@ def load_data():
     BASE = Path(__file__).resolve().parent
     PATH = BASE/ 'data.csv'
     PATHF = BASE / 'dataf.csv'
-    PATHFI = BASE / 'feature_importances_rf_accuracy.csv'
+    PATHFI = BASE / 'feature_importances_rf_f1.csv'
     data_oh = pd.read_csv(PATHF)
     data = pd.read_csv(PATH)
     fi_df = pd.read_csv(PATHFI)
@@ -218,13 +217,17 @@ if option =='-':
     col1,col2,col3=st.columns([1,2,1])
     with col2:
         st.image(BASE / "Amanita_muscaria.jpg", caption ='Amanita muscaria, a very famous poisonous mushroom. [Source](https://en.wikipedia.org/wiki/Amanita_muscaria)')
-    st.markdown('This app contains some results from a machine learning project for determining whether a mushroom is edible, by using'
-    ' features like stem height or width, the habitat, the season of growth, etc. It uses a cleaned version of this [dataset](https://archive.ics.uci.edu/dataset/848/secondary+mushroom+dataset).')
-    st.markdown("The target is called **class**.  A mushroom is **edible** if its class is 0,"
-    " and **poisonous** if its class is 1.")
-    st.markdown("You can take a peek at the dataset by clicking the box below. Otherwise, please choose an option from the sidebar.")
+    st.markdown('This app contains a model for determining whether a mushroom is edible or poisonous. It uses features like ' \
+    'stem height, cap diameter, cap color, the season of growth, etc. For the training of the model we used a cleaned ' \
+    'version of this [dataset](https://archive.ics.uci.edu/dataset/848/secondary+mushroom+dataset). The target is called **class**.  A mushroom is **edible** if its class is 0,'
+    ' and **poisonous** if its class is 1.')
+  
+    st.markdown("You can take a peek at the dataset by clicking the box below.")
     if st.checkbox("Show 5 random samples from the dataset" , False, key = 'dataheadcheck'):
         st.write(data.replace({'Poisonous':1,'Edible':0}).sample(5))
+    
+    st.markdown("**To make a prediction with the model**, choose **'Is your mushroom poisonous?'** in the sidebar option. You can also" \
+    " check out some insights from the data and some metrics of the model.")
 
 elif option == 'Insights from the data':
     option2 = st.sidebar.selectbox("What do you want to see from the data:", ('-', "Distribution of classes", 
@@ -247,7 +250,7 @@ elif option == 'Insights from the data':
 
     elif option2 == "Scatter plots of the numerical features":
         st.subheader("Scatter plots of the numerical features")
-        st.markdown("The dataset has 3 numerical features: the diameter of the cap of the mushroom, and the height and width of the stem. " \
+        st.markdown("The dataset has 3 numerical features: the diameter of the cap, and the height and width of the stem. " \
         "We plot the 3 possible scatter plots among the numerical features, colored by the class of the point. ")
         st.markdown("We see several **distinct clusters**, as well as an overall tendency of poisonous mushrooms " \
         "to have **smaller cap diameter and stem height/width** compared to certain edible mushrooms. This indicates that these features " \
@@ -258,7 +261,7 @@ elif option == 'Insights from the data':
         st.subheader("Distribution of the numerical features")
         st.markdown("The distributions of the 3 numerical features is **skewed** rather than approximately normal, and shows the presence of " \
         "**outliers**. This will cause no problems for tree-based models like random forests, but for models like " \
-        "support vector machines (SVM) with an rbf kernel one should try to performing a log transform. ")
+        "support vector machines (SVM) with an rbf kernel one should try to performing a log transform, as well as dealing with outliers. ")
         st.sidebar.markdown("Range of the plots:")
         rng1 = st.sidebar.slider("Cap diameter range (cm)", min_value=0, max_value=63, value=(0, 63), format="%.0f")
         rng2 = st.sidebar.slider("Stem height range (cm)", min_value=0, max_value = 34, value= (0,34))
@@ -268,8 +271,9 @@ elif option == 'Insights from the data':
     
     elif option2 =="Distribution of the categorical features":
         st.subheader("Distribution of some categorical features")
+        st.markdown("We include the distributions of some categorical features to give an idea of what information one can extract from them.")
         st.markdown("#### Cap shape distribution")
-        st.markdown("The most frequent cap shapes (convex and flat) dont allow us by itself to distinguish between poisonous and edible " \
+        st.markdown("The most frequent cap shapes (convex and flat) dont allow us by themselves to distinguish between poisonous and edible " \
         "mushrooms, but those that have bell shape or are in the 'others' category tend to be poisonous.")
         st.plotly_chart(cat1)
         st.markdown("#### Cap color distribution")
@@ -282,32 +286,35 @@ elif option == 'Insights from the data':
         st.plotly_chart(cat3)
     
 elif option =="Metrics of the trained model":
-    model_options = st.sidebar.selectbox("Which metrics do you want to see?", ('-', 'Accuracy, recall and confusion matrix', 'Feature importances'))
+    model_options = st.sidebar.selectbox("Which metrics do you want to see?", ('-', 'F1-score and confusion matrix', 'Feature importances'))
     if model_options =='-':
         st.subheader("Metrics from the random forest model 🌲🌳🌲")
-        st.markdown("A **random forest model** was trained with the hyperparamers chosen to maximize the **recall** score, while having "
-        "a high **accuracy** score.")
-        st.markdown("We maximize recall because we are interested in minimizing the false predictions of edible mushrooms, while maximizing " \
-        "the true predictions of poisonous mushrooms. At the same time, we also want high accuracy in order to avoid obtaining high " \
-        "recall by simply predicting that most mushrooms are poisonous. This strategy works because the classes are faily balanced.")
+        st.markdown("A **random forest model** was trained with the hyperparamers chosen to maximize the **f1-score**. Since the classes are fairly" \
+        " balanced, a high f1-score also ensures high accuracy. Furthermore, a high f1-score also ensures high recall, and hence a low number of" \
+        " poisonous mushrooms misclasified as edible.")
+
         st.markdown("**To continue**, please select an option from the sidebar.")
         col1,col2,col3=st.columns([1,4,1])
         with col2:
             st.image(BASE / "Random_forest.avif", caption = "A 'random forest'. [Source](https://canopyplanet.org/forests/how-we-protect-forests)")
 
-    elif model_options =='Accuracy, recall and confusion matrix':
-        st.subheader("Recall, accuracy, and confusion matrix")
-        st.markdown("Overal the model performed very well. Below we show the accuracy, recall and confusion matrix" \
-        " of the predictions on the test set.")
+    elif model_options =='F1-score and confusion matrix':
+        st.subheader("F1-score and confusion matrix")
+        st.markdown("Overal the model performed very well. Below we show the f1-score and confusion matrix, as well as metrics like accuracy," \
+                    " recall, and precision of the predictions on the test set.")
+        f1=f1_score(y_test,y_pred)
         recall = recall_score(y_test, y_pred)
+        precision = precision_score(y_test,y_pred)
         accuracy = accuracy_score(y_test, y_pred)
-        st.write(f"**Recall**: {recall:.1%}")
+        st.write(f"**F1-score**: {f1:.1%}")
+        st.write(f"**Recall**: {recall: .1%}")
+        st.write(f"**Precision**: {precision:.1%}")
         st.write(f"**Accuracy**: {accuracy: .1%}")
         st.plotly_chart(plot_confusion_matrix(y_test,y_pred, title=None))
     elif model_options =='Feature importances':
         st.subheader("Top 5 important features for the training of the model")
         st.markdown("The top 5 features that were the most important for the model while fitting are shown below. These where computed " \
-        "using **permutation importance** based on accuracy: how much randomly permuting a feature affects the accuracy of the model.")
+        "using **permutation importance** based on the f1-score: how much randomly permuting a feature affects the f1-score of the model.")
         fi_df['Feature'].replace({'stem-width': 'Stem width', 'stem-color_white': 'White stem color', 'cap-diameter': 'Cap diameter',
                               'gill-color_white': 'White gill color', 'stem-height': 'Stem height'}, inplace= True)
         st.plotly_chart(plot_fi(fi_df))
@@ -317,7 +324,8 @@ elif option =="Metrics of the trained model":
 
 elif option == "Is your mushroom poisonous?":
     st.subheader("Determine if a mushroom is poisonous 💀 or edible 🍄")
-    st.markdown(":red[**Warning! Do not use this app for deciding whether to eat a wild mushroom.**]")
+    st.markdown(":red[**Warning! Do not use this app for deciding whether to eat a wild mushroom. This model was trained on a synthetic dataset "
+    "which may not represent real world data with sufficient accuracy.**]")
     st.markdown("Please input the following data:")
     cap_diameter = st.number_input("What is the diameter of the cap (in cm)?", min_value=0, max_value= 63)
     cap_shape = st.selectbox("What is the cap shape?", tuple(data['cap-shape'].unique().tolist()))
