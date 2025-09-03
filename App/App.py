@@ -217,10 +217,11 @@ if option =='-':
     col1,col2,col3=st.columns([1,2,1])
     with col2:
         st.image(BASE / "Amanita_muscaria.jpg", caption ='Amanita muscaria, a very famous poisonous mushroom. [Source](https://en.wikipedia.org/wiki/Amanita_muscaria)')
-    st.markdown('This app contains a model for determining whether a mushroom is edible or poisonous. It uses features like ' \
-    'stem height, cap diameter, cap color, the season of growth, etc. For the training of the model we used a cleaned ' \
-    'version of this [dataset](https://archive.ics.uci.edu/dataset/848/secondary+mushroom+dataset). The target is called **class**.  A mushroom is **edible** if its class is 0,'
-    ' and **poisonous** if its class is 1.')
+    st.markdown('This app contains a model for determining whether a mushroom is edible or poisonous. To determine this it uses features like ' \
+    'stem height, cap diameter, cap color and the season of growth.')
+    st.markdown('For the training of the model we used a cleaned ' \
+    'version of this [dataset](https://archive.ics.uci.edu/dataset/848/secondary+mushroom+dataset). The target is called **class**, with an **edible** mushroom having class 0,'
+    ' and a **poisonous** mushroom having class 1.')
   
     st.markdown("You can take a peek at the dataset by clicking the box below.")
     if st.checkbox("Show 5 random samples from the dataset" , False, key = 'dataheadcheck'):
